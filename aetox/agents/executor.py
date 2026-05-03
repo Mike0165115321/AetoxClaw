@@ -4,6 +4,7 @@ import asyncio
 from typing import Dict, Any, Optional
 from aetox.tools.file_manager import FileManagerTool
 from aetox.tools.code_runner import CodeRunnerTool
+from aetox.tools.data_analyzer import DataAnalyzerTool
 from aetox.core.ollama_client import OllamaClient
 from aetox.core.prompt_engine import PromptEngine
 from aetox.safety.permission import PermissionManager
@@ -17,11 +18,12 @@ class ExecutorAgent:
     Includes safety and permission checks.
     """
     EXTRACTION_SCHEMA = {
-        "tool": "file_manager | discord_manager | code_runner | other",
-        "action": "list_files | read_file | write_file | create_category | create_channel | run_python | run_powershell",
+        "tool": "file_manager | discord_manager | code_runner | data_analyzer | other",
+        "action": "list_files | read_file | write_file | create_category | create_channel | run_python | run_powershell | read_pdf | analyze_table | get_column_stats",
         "params": {
             "path": "string (for files)",
             "code": "string (for code_runner)",
+            "column_name": "string (for data_analyzer)",
             "name": "string (for discord)",
             "guild_id": "integer",
             "content": "string"
@@ -40,6 +42,7 @@ class ExecutorAgent:
         self.file_manager = FileManagerTool(allowed_paths=allowed_paths)
         self.discord_tool = discord_tool
         self.code_runner = CodeRunnerTool()
+        self.data_analyzer = DataAnalyzerTool()
         self.permission_manager = PermissionManager()
         self.memory_manager = MemoryManager()
         self.client = client or OllamaClient()
@@ -212,6 +215,21 @@ class ExecutorAgent:
                     }
                 else:
                     return {"status": "failure", "error": result.get("error", "Unknown error"), "output": None}
+
+            elif tool == "data_analyzer" or action in ["read_pdf", "analyze_table", "get_column_stats"]:
+                path = params.get("path")
+                if not path:
+                    return {"status": "failure", "error": "No file path provided.", "output": None}
+                
+                if action == "read_pdf":
+                    output = self.data_analyzer.read_pdf(path)
+                elif action == "analyze_table":
+                    output = self.data_analyzer.analyze_table(path)
+                elif action == "get_column_stats":
+                    col = params.get("column_name")
+                    output = self.data_analyzer.get_column_stats(path, col)
+                
+                return {"status": "success", "output": output}
 
             return {
                 "status": "failure", 
