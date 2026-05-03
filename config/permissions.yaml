@@ -1,9 +1,17 @@
-allowed_paths:
-  - "C:/"
-  - "E:/"
+# AetoxOS Permissions Configuration
+# Fully Unlocked Mode
 
-forbidden_paths:
-  - "C:/Windows"
-  - "C:/Users/Gigabyte"
-  - "C:/System Volume Information"
-  - "C:/$Recycle.Bin"
+# Allowed base drives
+allowed_roots:
+  - "C:\\"
+  - "E:\\"
+
+# Forbidden paths (Cleared for full freedom)
+sensitive_zones: []
+
+# Risk levels for operations (Default: low for all because user trusts the tools)
+risk_rules:
+  organize: "low"
+  read: "low"
+  write: "low"
+  delete: "medium"

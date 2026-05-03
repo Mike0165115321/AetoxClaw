@@ -1,0 +1,93 @@
+import logging
+import fitz  # PyMuPDF
+from typing import Dict, Any
+from pathlib import Path
+from aetox.tools.base import BaseTool
+
+logger = logging.getLogger("aetox.tools.vision")
+
+class AetoxVision(BaseTool):
+    """
+    AetoxVision - The 'Eyes' of AetoxOS.
+    Specialized in reading and understanding document contents (PDF, TXT, etc.).
+    Supports proper Thai encoding to prevent gibberish text.
+    """
+    def __init__(self):
+        super().__init__(
+            name="aetox_vision",
+            description="Reads and extracts text from documents (PDF, TXT) with support for Thai language."
+        )
+
+    def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        action = params.get("action", "read")
+        path = params.get("path")
+
+        if not path:
+            return {"status": "failure", "error": "โปรดระบุตำแหน่งไฟล์ที่ต้องการให้อ่านครับ"}
+
+        if action == "read":
+            return self._read_document(path)
+        
+        return {"status": "failure", "error": f"ไม่รู้จักคำสั่ง: {action}"}
+
+    def _read_document(self, file_path: str) -> Dict[str, Any]:
+        try:
+            p = Path(file_path)
+            if not p.exists():
+                return {"status": "failure", "error": f"ไม่พบตำแหน่ง '{file_path}' ในเครื่องครับ"}
+
+            # 1. Handle Directory (Tree View)
+            if p.is_dir():
+                items = sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+                
+                tree_output = f"📂 **[AetoxVision]** โครงสร้างโฟลเดอร์: `{p.name}`\n```\n"
+                tree_output += f"{p.name}/\n"
+                
+                for i, item in enumerate(items):
+                    is_last = (i == len(items) - 1)
+                    prefix = "└── " if is_last else "├── "
+                    
+                    symbol = "📂 " if item.is_dir() else "📄 "
+                    tree_output += f"{prefix}{symbol}{item.name}\n"
+                
+                tree_output += "```"
+                return {"status": "success", "output": tree_output}
+
+            # 2. Handle File (Existing logic)
+            ext = p.suffix.lower()
+            text_content = ""
+
+            # 1. Handle PDF
+            if ext == ".pdf":
+                doc = fitz.open(str(p))
+                # Read up to first 5 pages to avoid massive output
+                for i in range(min(5, len(doc))):
+                    text_content += doc[i].get_text()
+                doc.close()
+                source_type = "PDF"
+
+            # 2. Handle Text files
+            elif ext in [".txt", ".log", ".py", ".js", ".json", ".yaml", ".csv"]:
+                # Force UTF-8 for Thai support
+                with open(p, "r", encoding="utf-8", errors="replace") as f:
+                    text_content = f.read(5000) # Read first 5k characters
+                source_type = "Text"
+
+            else:
+                return {"status": "failure", "error": f"ขออภัยครับ ตอนนี้ผมยังไม่อ่านไฟล์นามสกุล {ext} ไม่ได้"}
+
+            if not text_content.strip():
+                return {"status": "success", "output": f"📄 อ่านไฟล์ {source_type} สำเร็จ แต่ไม่พบข้อความข้างในครับ"}
+
+            # Clean up text a bit
+            clean_text = text_content.strip()
+            
+            return {
+                "status": "success",
+                "output": f"👁️ **[AetoxVision]** อ่านข้อมูลจากไฟล์ {source_type} เรียบร้อยครับ:\n\n{clean_text[:1500]}..." if len(clean_text) > 1500 else f"👁️ **[AetoxVision]** อ่านข้อมูลเสร็จแล้วครับ:\n\n{clean_text}",
+                "raw_text": clean_text
+            }
+
+        except Exception as e:
+            logger.error(f"Error in AetoxVision: {e}")
+            return {"status": "failure", "error": f"เกิดข้อผิดพลาดในการอ่านไฟล์: {str(e)}"}
