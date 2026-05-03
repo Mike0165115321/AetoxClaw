@@ -48,7 +48,10 @@ class Dispatcher:
             
         result = self.executor.run_action(extraction, minimal_context)
         
-        # 3. Update memory
+        # 3. Add to history for context (rolling 3 steps)
+        self.executor.add_to_history(goal, result.get("output", ""))
+        
+        # 4. Update memory
         self.memory.add_step_result(
             step_id=1,
             result=result.get("output"),

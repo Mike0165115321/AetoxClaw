@@ -106,18 +106,18 @@ async def on_message(message):
     # Use the same logic as !task
     await handle_direct_task(ctx, goal)
 
+# Persistent Memory and Dispatcher
+persistent_memory = WorkingMemory("")
+dispatcher = Dispatcher(persistent_memory)
+
 async def handle_direct_task(ctx, goal):
     """Refactored logic to handle both !task and natural chat."""
-    # 1. Setup (Quiet for Direct Tasks)
-    client = OllamaClient()
-    engine = PromptEngine()
-    memory = WorkingMemory(goal)
-    dispatcher = Dispatcher(memory)
+    # Use persistent dispatcher and memory
     interface = DiscordInterface(ctx)
-
+    
     dispatcher.progress_callback = None # Quiet
     dispatcher.executor.permission_manager.approval_callback = interface.request_approval
-    memory.update_context({"guild_id": ctx.guild.id if ctx.guild else None})
+    persistent_memory.update_context({"guild_id": ctx.guild.id if ctx.guild else None})
 
     # 2. Execute with Typing Status
     async with ctx.typing():

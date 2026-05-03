@@ -60,8 +60,8 @@ class AetoxVision(BaseTool):
             # 1. Handle PDF
             if ext == ".pdf":
                 doc = fitz.open(str(p))
-                # Read up to first 5 pages to avoid massive output
-                for i in range(min(5, len(doc))):
+                # Read up to first 20 pages for deeper context
+                for i in range(min(20, len(doc))):
                     text_content += doc[i].get_text()
                 doc.close()
                 source_type = "PDF"
