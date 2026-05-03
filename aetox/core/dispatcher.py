@@ -43,8 +43,17 @@ class Dispatcher:
             }
 
         # 2. Execute the action
+        if not hasattr(self.executor, 'run_action'):
+            error_detail = f"ExecutorAgent (Type: {type(self.executor)}) missing 'run_action' method."
+            self.logger.error(error_detail)
+            return {
+                "status": "failure",
+                "error": error_detail,
+                "needs_planning": False
+            }
+
         if self.progress_callback:
-            self.progress_callback(f"🛠️ Executing: {extraction.get('action')} using {extraction.get('tool')}")
+            self.progress_callback(f"[EXEC] Executing: {extraction.get('action')} using {extraction.get('tool')}")
             
         result = self.executor.run_action(extraction, minimal_context)
         
@@ -70,7 +79,7 @@ class Dispatcher:
             description = step.get("description")
             
             if self.progress_callback:
-                self.progress_callback(f"🚀 Working on Step {step_id}: {description}")
+                self.progress_callback(f"[PLAN] Working on Step {step_id}: {description}")
 
             retry_count = 0
             max_retries = 2
@@ -82,7 +91,7 @@ class Dispatcher:
                 
                 # 2. Evaluate with Critic
                 if self.progress_callback:
-                    self.progress_callback(f"🔍 **Critic (QC)** is evaluating Step {step_id}...")
+                    self.progress_callback(f"[QC] Critic is evaluating Step {step_id}...")
                 
                 eval_result = self.critic.evaluate(step, result, self.memory.context)
                 verdict = eval_result.get("verdict", "pass")
