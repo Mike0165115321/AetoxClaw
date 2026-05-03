@@ -6,6 +6,7 @@ from aetox.core.prompt_engine import PromptEngine
 from aetox.safety.permission import PermissionManager
 from aetox.tools.file_manager import MasterFileManager
 from aetox.tools.vision import AetoxVision
+from aetox.tools.system_control import SystemControl
 
 logger = logging.getLogger("aetox.agents.executor")
 
@@ -20,6 +21,7 @@ class ExecutorAgent:
         self.permission_manager = PermissionManager()
         self.file_manager = MasterFileManager()
         self.vision = AetoxVision()
+        self.system = SystemControl()
         self.last_path = None
         self.history = [] # Rolling buffer of last 3 interactions
 
@@ -31,9 +33,17 @@ class ExecutorAgent:
         if len(self.history) > 3:
             self.history.pop(0)
 
+    def _get_tools_info(self) -> str:
+        """Dynamically gathers name and description from all registered tools."""
+        tools = [self.file_manager, self.vision, self.system]
+        info = ""
+        for i, tool in enumerate(tools):
+            info += f"{i+1}. {tool.name}: {tool.description}\n"
+        return info
+
     def extract_action(self, task_step: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Uses LLM to extract intent with limited 3-step history context.
+        Uses LLM to extract intent with dynamic tool discovery and rolling history.
         """
         description = task_step.get("description", "")
         
@@ -42,33 +52,24 @@ class ExecutorAgent:
         for i, h in enumerate(self.history):
             history_str += f"{i+1}. ถาม: {h['q']} -> ตอบ: {h['a']}\n"
 
-        # High-Precision Extraction Prompt
-        extraction_prompt = (
-            "คุณคือผู้ช่วยสกัดคำสั่ง (Intent Extractor) สำหรับ AetoxOS\n"
-            "กฎการเลือกเครื่องมือ:\n"
-            "1. aetox_vision: ใช้เมื่อต้องการ 'ดู' (view/list), 'อ่าน' (read), 'สรุป' (summarize), 'แสดงไฟล์'\n"
-            "   - คำสำคัญ: ดู, มีอะไรบ้าง, สรุปที, อ่านไฟล์, ลิสต์ไฟล์\n"
-            "2. master_file_manager: ใช้เมื่อต้องการ 'จัดระเบียบ' (organize), 'แยกหมวดหมู่', 'ย้ายไฟล์เข้าโฟลเดอร์'\n"
-            "   - คำสำคัญ: จัดระเบียบ, จัดตำแหน่ง, แยกไฟล์, จัดเข้าที่\n"
-            "3. chat: ใช้สำหรับการพูดคุยทั่วไป\n\n"
-            f"ประวัติ 3 ครั้งล่าสุด:\n{history_str or 'ไม่มี'}\n"
-            f"ความจำล่าสุด (Path): '{self.last_path or 'ยังไม่มี'}'\n\n"
-            "กฎเหล็ก:\n"
-            "- รวมพาธจากความจำล่าสุดถ้าผู้ใช้ระบุแค่ชื่อไฟล์\n"
-            "- ห้ามซ้ำคำเวลาต่อพาธ (เช่น memory + '\\' + filename)\n"
-            "- แยกพาธไฟล์ (Path) ออกจากคำสั่งภาษาไทยให้ชัดเจน\n\n"
-            "โปรดตอบกลับเป็น JSON เท่านั้น:\n"
-            "{\n"
-            "  \"tool\": \"ชื่อเครื่องมือ\",\n"
-            "  \"action\": \"ชื่อคำสั่ง\",\n"
-            "  \"params\": {\"path\": \"ที่อยู่ไฟล์/โฟลเดอร์\", \"message\": \"ข้อความแชท\"},\n"
-            "  \"confidence\": 0.0-1.0\n"
-            "}\n\n"
-            f"คำสั่งผู้ใช้: \"{description}\""
+        # Load template and inject dynamic tools info
+        prompt_data = self.engine.get_external_template("config/prompts/executor.yaml", "intent_extraction")
+        
+        system_msg = prompt_data.get("system_template", "").format(
+            tools=self._get_tools_info(),
+            history=history_str or "ไม่มี",
+            last_path=self.last_path or "ยังไม่มี"
         )
+        user_msg = prompt_data.get("user_input_template", "").format(description=description)
+
+        # Extraction using Ollama
+        messages = [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg}
+        ]
         
         try:
-            result = self.client.chat(model="qwen2.5:14b", messages=[{"role": "user", "content": extraction_prompt}], format="json")
+            result = self.client.chat(model="qwen2.5:14b", messages=messages, format="json")
             content = result.get("message", {}).get("content", "{}")
             import json
             extraction = json.loads(content)
@@ -115,6 +116,9 @@ class ExecutorAgent:
                     result["output"] = f"👁️ **[AetoxVision - Super Summary]**\n\n{summary_text}"
             
             return result
+
+        if tool == "system_control":
+            return self.system.execute(params)
 
         if tool == "chat":
             # Real AI Chat response with strong persona
