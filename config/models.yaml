@@ -1,0 +1,6 @@
+planner: "qwen2.5:14b"
+executor: "qwen2.5:7b"
+critic: "deepseek-r1:7b"
+researcher: "qwen2.5:7b"
+coder: "qwen2.5:7b"
+extraction: "qwen2.5:7b"

@@ -52,44 +52,68 @@ class ExecutorAgent:
         self.memory_manager = MemoryManager()
         self.client = client or OllamaClient()
         self.engine = engine or PromptEngine()
-        self.model = "qwen2.5:7b"
+        
+        # Load Model Config
+        try:
+            with open("config/models.yaml", 'r') as f:
+                import yaml
+                config = yaml.safe_load(f)
+                self.model = config.get("executor", "qwen2.5:7b")
+        except Exception:
+            self.model = "qwen2.5:7b"
 
     def execute_step(self, step: Dict[str, Any], memory_context: Dict[str, Any]) -> Dict[str, Any]:
-        step_id = step.get("step_id", 0)
-        description = step.get("description", "No description")
-        
-        self.logger.info(f"Analyzing Step {step_id}: {description}")
-        
-        # 1. Try LLM Extraction
-        extraction = self._extract_with_llm(step, memory_context)
-        
-        source = "LLM"
-        if not extraction or extraction.get("confidence", 0) < 0.7:
-            self.logger.warning(f"LLM extraction failed or low confidence. Falling back to Heuristics.")
-            extraction = self._extract_with_heuristics(step, memory_context)
-            source = "Heuristic"
-        
-        action = extraction.get("action", "unknown")
-        params = extraction.get("params", {})
-        self.logger.info(f"Execution source: {source} | Extracted Action: {action}")
-
-        # 2. Permission Check
-        risk = self.permission_manager.get_risk_level(action, params)
-        if risk == "high":
-            details = f"{action} -> {params}"
-            if not self.permission_manager.request_permission(action, details):
-                # LEARN FROM DENIAL
-                self.memory_manager.learn_from_denial(action, details)
-                return {
-                    "status": "failure", 
-                    "error": "User DENIED high-risk operation.",
-                    "output": None
-                }
-        elif risk == "medium":
-            self.logger.info(f"MEDIUM risk action '{action}' logged.")
-
-        # 3. Execute based on extraction
-        return self.run_action(extraction, memory_context)
+        try:
+            step_id = step.get("step_id", 0)
+            description = step.get("description", "No description")
+            
+            self.logger.info(f"Analyzing Step {step_id}: {description}")
+            
+            # 1. Try LLM Extraction
+            extraction = self._extract_with_llm(step, memory_context)
+            
+            source = "LLM"
+            if not extraction or extraction.get("confidence", 0) < 0.7:
+                self.logger.warning(f"LLM extraction failed or low confidence. Falling back to Heuristics.")
+                extraction = self._extract_with_heuristics(step, memory_context)
+                source = "Heuristic"
+            
+            action = extraction.get("action", "unknown")
+            params = extraction.get("params", {})
+            self.logger.info(f"Execution source: {source} | Extracted Action: {action}")
+    
+            # 2. Permission Check
+            risk = self.permission_manager.get_risk_level(action, params)
+            if risk == "high":
+                details = f"{action} -> {params}"
+                if not self.permission_manager.request_permission(action, details):
+                    # LEARN FROM DENIAL
+                    self.memory_manager.learn_from_denial(action, details)
+                    return {
+                        "status": "failure", 
+                        "error": "User DENIED high-risk operation.",
+                        "output": None
+                    }
+            elif risk == "medium":
+                self.logger.info(f"MEDIUM risk action '{action}' logged.")
+    
+            # 3. Execute based on extraction
+            return self.run_action(extraction, memory_context)
+            
+        except SafetyViolation as sv:
+            self.logger.error(f"Safety Violation: {sv}")
+            return {
+                "status": "failure",
+                "error": f"🛡️ {str(sv)}",
+                "output": None
+            }
+        except Exception as e:
+            self.logger.error(f"Unexpected Execution Error: {e}")
+            return {
+                "status": "failure",
+                "error": str(e),
+                "output": None
+            }
 
     def _extract_with_llm(self, step: Dict[str, Any], memory_context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         try:
@@ -279,6 +303,9 @@ class ExecutorAgent:
                 "output": None
             }
 
+        except SafetyViolation as sv:
+            self.logger.error(f"Safety Violation: {sv}")
+            return {"status": "failure", "error": f"🛡️ {str(sv)}", "output": None}
         except Exception as e:
             self.logger.error(f"Execution Error: {str(e)}")
             return {"status": "failure", "error": str(e), "output": None}

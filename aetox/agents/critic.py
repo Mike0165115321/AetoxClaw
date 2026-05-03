@@ -13,7 +13,15 @@ class CriticAgent:
         self.logger = logging.getLogger("aetox.agents.critic")
         self.client = client or OllamaClient()
         self.engine = engine or PromptEngine()
-        self.model = "deepseek-r1:7b"
+        
+        # Load Model Config
+        try:
+            with open("config/models.yaml", 'r') as f:
+                import yaml
+                config = yaml.safe_load(f)
+                self.model = config.get("critic", "deepseek-r1:7b")
+        except Exception:
+            self.model = "deepseek-r1:7b"
 
     def evaluate(self, step: Dict[str, Any], result: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         """

@@ -23,7 +23,6 @@ class Dispatcher:
         Skips planning and uses optimized context.
         """
         self.logger.info(f"Running direct step for goal: {goal}")
-        self.logger.info(f"Executor methods: {[m for m in dir(self.executor) if not m.startswith('__')]}")
         
         if self.progress_callback:
             self.progress_callback(f"[TASK] Analyzing direct action: {goal}")
@@ -43,14 +42,6 @@ class Dispatcher:
             }
 
         # 2. Execute the action
-        if not hasattr(self.executor, 'run_action'):
-            error_detail = f"ExecutorAgent (Type: {type(self.executor)}) missing 'run_action' method."
-            self.logger.error(error_detail)
-            return {
-                "status": "failure",
-                "error": error_detail,
-                "needs_planning": False
-            }
 
         if self.progress_callback:
             self.progress_callback(f"[EXEC] Executing: {extraction.get('action')} using {extraction.get('tool')}")

@@ -15,7 +15,15 @@ class Planner:
         self.client = client or OllamaClient()
         self.engine = engine or PromptEngine()
         self.memory_manager = MemoryManager()
-        self.model = "qwen2.5:14b"
+        
+        # Load Model Config
+        try:
+            with open("config/models.yaml", 'r') as f:
+                import yaml
+                config = yaml.safe_load(f)
+                self.model = config.get("planner", "qwen2.5:14b")
+        except Exception:
+            self.model = "qwen2.5:14b"
 
     def create_plan(self, user_goal: str) -> Dict[str, Any]:
         self.logger.info(f"Planning for goal: {user_goal}")
