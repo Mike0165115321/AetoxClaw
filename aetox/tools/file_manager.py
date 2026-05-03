@@ -57,3 +57,32 @@ class FileManagerTool:
         safe_path = self._validate_path(dir_path)
         safe_path.mkdir(parents=True, exist_ok=True)
         return f"Directory created: {dir_path}"
+
+    def move_file(self, src_path: str, dest_path: str) -> str:
+        """Moves or renames a file/directory."""
+        safe_src = self._validate_path(src_path)
+        safe_dest = self._validate_path(dest_path)
+        
+        if not safe_src.exists():
+            raise FileNotFoundError(f"Source '{src_path}' not found.")
+            
+        # Ensure parent of destination exists
+        safe_dest.parent.mkdir(parents=True, exist_ok=True)
+        
+        safe_src.rename(safe_dest)
+        return f"Successfully moved {src_path} to {dest_path}"
+
+    def delete_file(self, file_path: str) -> str:
+        """Deletes a file."""
+        safe_path = self._validate_path(file_path)
+        if not safe_path.exists():
+            raise FileNotFoundError(f"File '{file_path}' not found.")
+        
+        if safe_path.is_dir():
+            # For safety, we only allow deleting empty directories or specific files
+            # unless a recursive flag is added (omitted for now for safety)
+            safe_path.rmdir() 
+            return f"Directory deleted: {file_path}"
+        else:
+            safe_path.unlink()
+            return f"File deleted: {file_path}"

@@ -194,6 +194,15 @@ class ExecutorAgent:
             elif action == "create_directory" or (tool == "file_manager" and "directory" in action):
                 result = self.file_manager.create_directory(params.get("path"))
                 return {"status": "success", "output": result}
+            elif action == "move_file" or action == "rename_file" or (tool == "file_manager" and "move" in action):
+                result = self.file_manager.move_file(params.get("source"), params.get("destination"))
+                return {"status": "success", "output": result}
+            elif action == "delete_file" or action == "remove_file" or (tool == "file_manager" and "delete" in action):
+                # Always ask for permission for deletion
+                if not self.permission_manager.request_permission("delete", f"Deleting {params.get('path')}"):
+                    return {"status": "failure", "error": "Permission denied by user.", "output": None}
+                result = self.file_manager.delete_file(params.get("path"))
+                return {"status": "success", "output": result}
 
             elif tool == "discord_manager" or action in ["create_category", "create_channel"]:
                 if not self.discord_tool:
