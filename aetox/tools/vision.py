@@ -68,12 +68,12 @@ class AetoxVision(BaseTool):
                 doc.close()
                 source_type = "PDF"
 
-            # 2. Handle Text files
-            elif ext in [".txt", ".log", ".py", ".js", ".json", ".yaml", ".csv"]:
+            # 2. Handle Text & Code files
+            elif ext in [".txt", ".log", ".py", ".js", ".ts", ".json", ".yaml", ".yml", ".csv", ".md", ".html", ".css", ".env", ".gitignore"]:
                 # Force UTF-8 for Thai support
                 with open(p, "r", encoding="utf-8", errors="replace") as f:
-                    text_content = f.read(5000) # Read first 5k characters
-                source_type = "Text"
+                    text_content = f.read(10000) # Increased to 10k characters
+                source_type = "Text/Code"
 
             # 3. Handle Word documents
             elif ext == ".docx":
