@@ -21,48 +21,41 @@ class OllamaClient:
         format: Optional[str] = None,
         options: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """
-        Sends a chat request to Ollama.
-        
-        Args:
-            model: Name of the model to use.
-            messages: List of message dicts (role, content).
-            format: Set to "json" to enforce JSON output.
-            options: Additional model parameters (temperature, etc.).
-        """
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": False
-        }
-        
-        if format:
-            payload["format"] = format
-            
-        if options:
-            payload["options"] = options
+        """Sends a chat request to Ollama (Synchronous)."""
+        payload = {"model": model, "messages": messages, "stream": False}
+        if format: payload["format"] = format
+        if options: payload["options"] = options
 
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.post(self.chat_url, json=payload)
                 response.raise_for_status()
-                result = response.json()
-                
-                # Check if it's JSON format and try to parse it early if needed
-                if format == "json":
-                    content = result.get("message", {}).get("content", "")
-                    try:
-                        # We just verify it's valid JSON here
-                        json.loads(content)
-                    except json.JSONDecodeError:
-                        logger.error(f"Model {model} returned invalid JSON even with format='json'")
-                
-                return result
-        except httpx.ConnectError:
-            logger.error(f"Could not connect to Ollama at {self.host}. Is it running?")
-            raise ConnectionError(f"Ollama connection failed at {self.host}")
+                return response.json()
         except Exception as e:
             logger.error(f"Error calling Ollama API: {str(e)}")
+            raise
+
+    def chat_stream(
+        self, 
+        model: str, 
+        messages: List[Dict[str, str]], 
+        options: Optional[Dict[str, Any]] = None
+    ):
+        """Sends a chat request to Ollama and yields response tokens (Streaming)."""
+        payload = {"model": model, "messages": messages, "stream": True}
+        if options: payload["options"] = options
+
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                with client.stream("POST", self.chat_url, json=payload) as response:
+                    response.raise_for_status()
+                    for line in response.iter_lines():
+                        if line:
+                            chunk = json.loads(line)
+                            if chunk.get("done"): break
+                            yield chunk.get("message", {}).get("content", "")
+        except Exception as e:
+            logger.error(f"Error in Ollama chat stream: {str(e)}")
             raise
 
     def check_health(self) -> bool:

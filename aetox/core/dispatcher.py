@@ -58,6 +58,22 @@ class Dispatcher:
         
         return result
 
+    def run_direct_chat_stream(self, goal: str):
+        """
+        Specialized stream handler for pure chat.
+        """
+        # First, check if it's a chat intent
+        minimal_context = {"context": {}} 
+        extraction = self.executor.extract_action({"description": goal}, minimal_context)
+        
+        if extraction.get("tool") == "chat":
+            # Stream directly from executor
+            for token in self.executor.run_chat_stream(goal):
+                yield token
+        else:
+            # Not a chat intent, return a failure marker as a string for now
+            yield "__NOT_CHAT__"
+
     def run_plan(self, plan: Dict[str, Any]) -> Dict[str, Any]:
         plan_id = plan.get("plan_id", "unknown")
         steps = plan.get("steps", [])

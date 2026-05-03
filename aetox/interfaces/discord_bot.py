@@ -126,18 +126,17 @@ async def handle_direct_task(ctx, goal):
             
             if result.get("status") == "failure":
                 error_msg = result.get("error", "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ")
-                if result.get("needs_planning") or "too complex" in error_msg.lower():
-                    await ctx.send(f"❌ **ดำเนินการไม่สำเร็จ:** {error_msg}\n💡 *งานนี้ดูซับซ้อนเกินไป ลองใช้ `!plan` ดูไหมครับ?*")
-                else:
-                    await ctx.send(f"❌ **ดำเนินการไม่สำเร็จ:** {error_msg}")
+                await ctx.send(f"❌ **ขออภัยครับ:** {error_msg}")
                 return
 
-            output = result.get("output", "เสร็จสิ้น")
-            if isinstance(output, str) and len(output) > 1500: output = output[:1500] + "..."
-            summary = f"🏁 **การดำเนินการเสร็จสมบูรณ์!**\n**ผลลัพธ์:**\n```\n{output}\n```"
-            await ctx.send(summary)
+            # Pure Chat Experience: Send only the output text
+            output = result.get("output", "")
+            if output:
+                # If the output is longer than Discord limit, truncate it
+                if len(output) > 1900: output = output[:1900] + "..."
+                await ctx.send(output)
         except Exception as e:
-            await ctx.send(f"❌ **ระบบขัดข้อง:** {str(e)}")
+            await ctx.send(f"❌ **ขออภัย ระบบขัดข้อง:** {str(e)}")
 
 @bot.command(name="task")
 @commands.cooldown(1, 5, commands.BucketType.user)

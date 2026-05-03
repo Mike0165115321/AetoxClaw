@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from aetox.core.ollama_client import OllamaClient
 from aetox.core.prompt_engine import PromptEngine
-from aetox.safety.permissions import PermissionManager
+from aetox.safety.permission import PermissionManager
 
 logger = logging.getLogger("aetox.agents.executor")
 
@@ -34,15 +34,46 @@ class ExecutorAgent:
         """
         tool = extraction.get("tool")
         if tool == "chat":
-            # Just let the model talk back normally
+            # Real AI Chat response with strong persona
+            system_prompt = (
+                "คุณคือ AetoxOS ระบบปฏิบัติการอัจฉริยะที่พัฒนาโดยทีม Aetox "
+                "คุณมีบุคลิกที่เป็นมิตร มืออาชีพ และพร้อมช่วยเหลือผู้ใช้เสมอ "
+                "คุณคือ AetoxOS เท่านั้น! ตอบกลับเป็นภาษาที่ผู้ใช้ถามที่สุภาพและเป็นธรรมชาติ"
+            )
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": extraction.get('params', {}).get('message', '')}
+            ]
+            
+            result = self.client.chat(model="qwen2.5:14b", messages=messages)
+            response = result.get("message", {}).get("content", "ขออภัยครับ ผมนึกไม่ออก")
+            
             return {
                 "status": "success",
-                "output": "AI is ready to chat. (Clean State Mode)",
+                "output": response,
                 "memory_updates": {}
             }
             
         return {
             "status": "failure", 
-            "error": "No tools available. AetoxOS is currently in clean-slate mode.",
+            "error": "ขออภัยครับ ตอนนี้ผมยังไม่มีเครื่องมือสำหรับทำสิ่งนี้ (โหมดพื้นฐาน)",
             "output": None
         }
+
+    def run_chat_stream(self, message: str):
+        """
+        Yields tokens from the LLM for a chat message with a strong persona.
+        """
+        system_prompt = (
+            "คุณคือ AetoxOS ระบบปฏิบัติการอัจฉริยะที่พัฒนาโดยทีม Aetox "
+            "คุณมีบุคลิกที่เป็นมิตร มืออาชีพ และพร้อมช่วยเหลือผู้ใช้เสมอ "
+            "คุณคือ AetoxOS เท่านั้น! ตอบกลับเป็นภาษาที่ผู้ใช้ถามที่สุภาพและเป็นธรรมชาติ"
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": message}
+        ]
+        
+        # Stream tokens from Ollama
+        for token in self.client.chat_stream(model="qwen2.5:14b", messages=messages):
+            yield token
