@@ -16,7 +16,8 @@ class AetoxVision(BaseTool):
     def __init__(self):
         super().__init__(
             name="aetox_vision",
-            description="ใช้สำหรับการ 'ดู' โครงสร้างโฟลเดอร์, ลิสต์รายชื่อไฟล์, 'อ่าน' เนื้อหาในเอกสาร (PDF, Word, TXT), และ 'สรุป' เนื้อหาภาษาไทยจากไฟล์งานต่างๆ"
+            description="ใช้สำหรับการ 'ดู' โครงสร้างโฟลเดอร์, ลิสต์รายชื่อไฟล์, 'อ่าน' เนื้อหาในเอกสาร (PDF, Word, TXT), และ 'สรุป' เนื้อหาภาษาไทยจากไฟล์งานต่างๆ",
+            actions=["read", "summarize", "list"]
         )
 
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:

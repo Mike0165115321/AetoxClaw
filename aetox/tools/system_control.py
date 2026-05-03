@@ -15,7 +15,8 @@ class SystemControl(BaseTool):
     def __init__(self):
         super().__init__(
             name="system_control",
-            description="ใช้สำหรับการ 'เปิด' (Open/Run) แอปพลิเคชัน, โปรแกรมในเครื่อง, หรือเปิดไฟล์งานขึ้นมาใช้งานบนหน้าจอโดยตรง"
+            description="ใช้สำหรับการ 'เปิด' (Open/Run) แอปพลิเคชัน, โปรแกรมในเครื่อง, หรือเปิดไฟล์งานขึ้นมาใช้งานบนหน้าจอโดยตรง",
+            actions=["open"]
         )
 
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:

@@ -15,7 +15,8 @@ class MasterFileManager(BaseTool):
     def __init__(self):
         super().__init__(
             name="master_file_manager",
-            description="ใช้สำหรับการ 'จัดระเบียบ' 'จัดโครงสร้างโฟลเดอร์' ไฟล์จำนวนมากอัตโนมัติ โดยการแยกไฟล์ลงโฟลเดอร์หมวดหมู่ (เช่น Images, Documents, Code) ตามนามสกุลไฟล์"
+            description="ใช้สำหรับการ 'จัดระเบียบ' 'จัดโครงสร้างโฟลเดอร์' ไฟล์จำนวนมากอัตโนมัติ โดยการแยกไฟล์ลงโฟลเดอร์หมวดหมู่ (เช่น Images, Documents, Code) ตามนามสกุลไฟล์",
+            actions=["organize"]
         )
         self.categories = {
             "Images": [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp", ".bmp"],

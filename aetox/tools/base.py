@@ -6,9 +6,10 @@ class BaseTool(ABC):
     Abstract base class for all AetoxOS tools.
     Standardizes how tools are defined and executed.
     """
-    def __init__(self, name: str, description: str):
+    def __init__(self, name: str, description: str, actions: list = None):
         self.name = name
         self.description = description
+        self.actions = actions or []
 
     @abstractmethod
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:

@@ -34,11 +34,12 @@ class ExecutorAgent:
             self.history.pop(0)
 
     def _get_tools_info(self) -> str:
-        """Dynamically gathers name and description from all registered tools."""
+        """Dynamically gathers name, description, and actions from all registered tools."""
         tools = [self.file_manager, self.vision, self.system]
         info = ""
         for i, tool in enumerate(tools):
-            info += f"{i+1}. {tool.name}: {tool.description}\n"
+            actions_str = ", ".join(tool.actions)
+            info += f"{i+1}. {tool.name}: {tool.description} (คำสั่งที่รองรับ: {actions_str})\n"
         return info
 
     def extract_action(self, task_step: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
