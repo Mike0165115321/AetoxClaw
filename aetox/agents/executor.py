@@ -282,7 +282,10 @@ class ExecutorAgent:
                 # Check for async loop (similar to Discord tool)
                 loop = None
                 try:
+                    # In a worker thread, get_event_loop() might fail or return a closed loop
                     loop = asyncio.get_event_loop()
+                    if loop.is_closed():
+                        raise RuntimeError("Loop closed")
                 except RuntimeError:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)

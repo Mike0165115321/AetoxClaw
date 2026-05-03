@@ -235,10 +235,12 @@ async def custom_help(ctx: commands.Context):
     """Custom help message."""
     help_text = (
         "**🌌 AetoxOS Discord Interface**\n"
-        "`!task [goal]` - Send a goal to AetoxOS\n"
-        "`!status`      - Check current progress\n"
-        "`!memory`      - View learned preferences and history\n"
-        "`!cancel`      - Stop current task\n"
+        "`!task`   - Direct Execution (Fast Lane ⚡)\n"
+        "`!plan`   - Planned Execution (Deep Lane 🧠)\n"
+        "`!setup`  - Initialize Professional Workspace 🏗️\n"
+        "`!memory` - View memory and history\n"
+        "`!status` - Check progress\n"
+        "`!cancel` - Stop task\n"
     )
     await ctx.send(help_text)
 

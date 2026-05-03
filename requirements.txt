@@ -1,0 +1,9 @@
+discord.py
+python-dotenv
+httpx
+pyyaml
+pypdf
+pandas
+openpyxl
+psutil
+ollama
