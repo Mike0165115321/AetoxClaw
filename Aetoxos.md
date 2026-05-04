@@ -2,7 +2,7 @@
 > **Document Version:** 1.0.0  
 > **Target Model:** Gemini (Antigraviity AI)  
 > **Purpose:** Hand-off document for code implementation  
-> **Language Stack:** Python 3.11+ (Brain Layer) · Rust (Memory/Storage Layer)  
+> **Language Stack:** Python 3.11+ (Brain Layer)  
 > **Platform:** Windows 10/11 Native  
 > **LLM Backend:** Ollama (Local)  
 
@@ -33,7 +33,7 @@
 ### Core Philosophy
 
 - **System intelligence > Model size** — A smart architecture with 7B–14B models outperforms a dumb wrapper around a 70B model
-- **Memory is selective** — Only pass forward what the next step actually needs
+- **Memory is transient** — Focus on current task state to keep context window clean.
 - **Safety first** — Always ask permission before irreversible actions on Windows
 - **Open Source** — Designed to be distributed and community-extendable
 
@@ -85,13 +85,9 @@ User Input (Telegram / CLI)
              │
              ▼
 ┌─────────────────────────┐
-│   🧠 Memory Layer        │  ← Rust: Fast I/O, Compression, Queue
+│   🧠 Memory Layer        │  ← Python: In-RAM State Management
 │  ┌─────────────────┐    │
-│  │ Working Memory  │    │  Current task only (RAM)
-│  │ Session Memory  │    │  Current session (RAM)
-│  │ Episodic Memory │    │  Past events (SQLite on disk)
-│  │ Preference Mem  │    │  User habits (JSON on disk)
-│  │ Compressor      │    │  Summarizes before passing forward
+│  │ Working Memory  │    │  Current task state (RAM)
 │  └─────────────────┘    │
 └────────────┬────────────┘
              │
@@ -128,15 +124,9 @@ AetoxOS/
 │   │   ├── researcher.py            # Deep research and analysis (9B thinking)
 │   │   └── critic.py                # Evaluates and scores output quality
 │   │
-│   ├── memory/                      # Memory Layer (Python interface → Rust backend)
+│   ├── memory/                      # Memory Layer (Python)
 │   │   ├── __init__.py
-│   │   ├── manager.py               # Central memory coordinator
-│   │   ├── working.py               # In-RAM memory for current task
-│   │   ├── session.py               # In-RAM memory for current session
-│   │   ├── episodic.py              # Persistent event memory (SQLite)
-│   │   ├── preference.py            # Persistent user preference memory (JSON)
-│   │   ├── compressor.py            # Compresses memory before passing to next step
-│   │   └── filter.py                # Decides what to keep vs. discard
+│   │   └── working.py               # In-RAM memory for current task
 │   │
 │   ├── tools/                       # Tool Registry (Python)
 │   │   ├── __init__.py
@@ -153,27 +143,14 @@ AetoxOS/
 │   │   ├── cli.py                   # Rich terminal CLI interface
 │   │   └── api_server.py            # FastAPI REST server for future extensibility
 │   │
-│   └── safety/                      # Safety Layer (Python + Rust)
+│   └── safety/                      # Safety Layer (Python)
 │       ├── __init__.py
 │       ├── sandbox.py               # Restricts file system access boundaries
 │       ├── permission.py            # Prompts user before irreversible actions
 │       ├── rollback.py              # Undoes changes if task fails
 │       └── audit_log.py             # Logs every action taken by the system
 │
-├── rust_core/                       # Rust Backend (compiled as Python extension)
-│   ├── src/
-│   │   ├── main.rs
-│   │   ├── memory_store.rs          # Fast SQLite read/write
-│   │   ├── compressor.rs            # Memory compression algorithm
-│   │   ├── task_queue.rs            # Reliable task queue (no data loss)
-│   │   ├── file_ops.rs              # Safe Windows file operations
-│   │   └── sandbox.rs               # File system access boundary enforcement
-│   └── Cargo.toml
-│
 ├── data/
-│   ├── memory_store/
-│   │   ├── episodic.db              # SQLite: past events
-│   │   └── preferences.json         # User habits and settings
 │   ├── logs/
 │   │   ├── audit.log                # Every action ever taken
 │   │   └── errors.log               # Failures and exceptions
@@ -217,167 +194,8 @@ class WorkingMemory:
         "current_step": int,      # Which step we're on
         "step_results": list,     # Results from each completed step
         "artifacts": dict,        # Files/data created during task
-        "errors": list,           # Errors encountered so far
-        "retry_count": int,       # How many times we've retried
+        "context": dict,          # Key facts to pass between steps
     }
-```
-
-#### Session Memory
-```python
-# aetox/memory/session.py
-# Scope: Current session (from start to shutdown). Destroyed on exit.
-# Storage: RAM only (Python dict)
-
-class SessionMemory:
-    schema = {
-        "session_id": str,
-        "started_at": str,              # ISO timestamp
-        "tasks_completed": list,        # Summary of completed tasks
-        "user_corrections": list,       # Times user corrected the system
-        "active_preferences": dict,     # Preferences set this session
-        "context_window_usage": int,    # Total tokens used this session
-    }
-```
-
-#### Episodic Memory
-```python
-# aetox/memory/episodic.py
-# Scope: Persistent across sessions. Lives in SQLite.
-# Storage: data/memory_store/episodic.db
-
-class EpisodicMemory:
-    schema = {
-        "event_id": "TEXT PRIMARY KEY",
-        "timestamp": "TEXT",           # ISO 8601
-        "event_type": "TEXT",          # task_completed | error | user_correction
-        "task_summary": "TEXT",        # Short summary of what happened
-        "outcome": "TEXT",             # success | failure | partial
-        "key_facts": "TEXT",           # JSON: important facts from this event
-        "tags": "TEXT",                # JSON array: searchable tags
-    }
-
-    # Save trigger conditions:
-    # - Task completed successfully
-    # - Task failed (to learn from)
-    # - User corrected the system
-    # - New pattern discovered (e.g., user always prefers X)
-```
-
-#### Preference Memory
-```python
-# aetox/memory/preference.py
-# Scope: Permanent. Updated cumulatively over time.
-# Storage: data/memory_store/preferences.json
-
-class PreferenceMemory:
-    schema = {
-        "file_naming": str,        # e.g., "snake_case"
-        "output_format": str,      # e.g., "always PDF"
-        "language": str,           # e.g., "Thai preferred"
-        "verbosity": str,          # e.g., "concise"
-        "forbidden_paths": list,   # Paths the user said never to touch
-        "preferred_tools": dict,   # Tool preferences per task type
-        "custom_rules": list,      # User-defined rules in natural language
-        "last_updated": str,
-    }
-```
-
----
-
-### 4.2 Memory Filter — The Smart Core
-
-This is what makes AetoxOS feel intelligent. Before passing context to the next step, the filter decides:
-
-```python
-# aetox/memory/filter.py
-
-class MemoryFilter:
-    """
-    Core decision engine: what gets passed forward, what gets compressed, what gets discarded.
-    Uses LLM (7B) to make filtering decisions.
-    """
-
-    def filter_for_next_step(
-        self,
-        current_result: dict,
-        next_step_description: str,
-        token_budget: int,
-    ) -> dict:
-        """
-        Args:
-            current_result: Full output from the current step
-            next_step_description: What the next step needs to do
-            token_budget: Max tokens we can pass forward
-
-        Returns:
-            {
-                "critical": [...],    # Must pass forward — next step cannot work without this
-                "context": [...],     # Helpful but not critical — pass if budget allows
-                "discard": [...],     # Not needed by next step — drop it
-                "summary": str,       # Compressed summary of what happened
-            }
-        """
-
-        prompt = self._build_filter_prompt(current_result, next_step_description, token_budget)
-        response = self.llm.ask(model="qwen2.5:7b", prompt=prompt)
-        return self._parse_filter_response(response)
-
-    def should_save_to_episodic(self, event: dict) -> bool:
-        """
-        Returns True if this event is worth saving to long-term memory.
-        Saves when: user corrects system, task fails, new preference detected,
-        or a repeated pattern is identified.
-        """
-        triggers = [
-            event.get("outcome") == "failure",
-            event.get("user_corrected") is True,
-            event.get("new_preference_detected") is True,
-            event.get("repeated_pattern") is True,
-        ]
-        return any(triggers)
-
-    def should_update_preference(self, event: dict) -> bool:
-        """
-        Returns True if a new user preference was discovered.
-        """
-        return (
-            event.get("user_corrected") is True
-            or event.get("explicit_preference") is True
-        )
-```
-
----
-
-### 4.3 Memory Compressor
-
-```python
-# aetox/memory/compressor.py
-
-class MemoryCompressor:
-    """
-    Compresses memory to fit within context window limits.
-    Uses LLM to intelligently summarize — not naive truncation.
-    """
-
-    def compress(self, memory_block: dict, max_tokens: int) -> str:
-        """
-        Compress a memory block to fit within max_tokens.
-        Preserves: facts, outcomes, key decisions
-        Removes: raw data, verbose descriptions, redundant info
-        """
-
-    def compress_step_results(self, step_results: list) -> str:
-        """
-        Takes all step results so far and compresses into a single
-        coherent summary for the final reporting step.
-        """
-
-    def rolling_compress(self, session_memory: dict) -> dict:
-        """
-        Called when session memory approaches context limit.
-        Keeps recent steps in full, compresses older steps.
-        Like human short-term memory — recent is detailed, old is summary.
-        """
 ```
 
 ---

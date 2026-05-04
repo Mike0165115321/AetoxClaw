@@ -3,7 +3,7 @@ from typing import Dict, List, Any, Optional, Callable
 from aetox.memory.working import WorkingMemory
 from aetox.agents.executor import ExecutorAgent
 from aetox.agents.critic import CriticAgent
-from aetox.memory.manager import MemoryManager
+
 
 class Dispatcher:
     """
@@ -14,7 +14,7 @@ class Dispatcher:
         self.memory = memory
         self.executor = ExecutorAgent()
         self.critic = CriticAgent()
-        self.memory_manager = MemoryManager()
+
         self.progress_callback: Optional[Callable[[str], None]] = None
 
     def run_direct_step(self, goal: str) -> Dict[str, Any]:
@@ -139,15 +139,7 @@ class Dispatcher:
 
         self.logger.info("Plan execution completed.")
         
-        # 3. Save to Episodic Memory
+        # Note: Saving to episodic memory has been removed.
         outcome = "success" if all_success else "partial_failure"
-        self.memory_manager.save_episode(
-            event_id=plan_id,
-            event_type="task_execution",
-            summary=getattr(self.memory, "goal", "Task Execution"),
-            outcome=outcome,
-            facts=getattr(self.memory, "context", {}),
-            tags=["task_execution", outcome]
-        )
         
         return self.memory.get_full_context()

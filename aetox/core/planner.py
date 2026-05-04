@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from aetox.core.ollama_client import OllamaClient
 from aetox.core.prompt_engine import PromptEngine
-from aetox.memory.manager import MemoryManager
+
 
 class Planner:
     """
@@ -14,7 +14,7 @@ class Planner:
         self.logger = logging.getLogger("aetox.core.planner")
         self.client = client or OllamaClient()
         self.engine = engine or PromptEngine()
-        self.memory_manager = MemoryManager()
+
         
         # Load Model Config
         try:
@@ -28,13 +28,7 @@ class Planner:
     def create_plan(self, user_goal: str) -> Dict[str, Any]:
         self.logger.info(f"Planning for goal: {user_goal}")
         
-        # Fetch Memory Context
-        past_context = self.memory_manager.get_context_for_planner(user_goal)
-        
         full_input = user_goal
-        if past_context:
-            full_input = f"{user_goal}\n\n[PAST CONTEXT & PREFERENCES]\n{past_context}"
-            self.logger.info("Injected past context into planner.")
             
         messages = self.engine.build_chat_messages(
             role="planner",

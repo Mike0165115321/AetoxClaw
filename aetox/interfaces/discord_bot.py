@@ -32,9 +32,7 @@ from aetox.core.prompt_engine import PromptEngine
 from aetox.core.planner import Planner
 from aetox.core.dispatcher import Dispatcher
 from aetox.memory.working import WorkingMemory
-from aetox.memory.manager import MemoryManager
-from aetox.memory.working import WorkingMemory
-from aetox.memory.manager import MemoryManager
+
 
 # Load environment variables
 load_dotenv()
@@ -256,23 +254,7 @@ async def guild_id_to_cat_id(guild_id, name, tool):
     match = re.search(r"ID: (\d+)", res)
     return int(match.group(1)) if match else None
 
-@bot.command(name="memory")
-async def show_memory(ctx: commands.Context):
-    """Shows what AetoxOS knows about you."""
-    manager = MemoryManager()
-    prefs = manager.preference.preferences
-    recent = manager.episodic.query_recent(limit=3)
-    
-    msg = "**🧠 AetoxOS Memory**\n\n"
-    msg += "**Preferences:**\n"
-    msg += f"- File Naming: {prefs.get('file_naming')}\n"
-    msg += f"- Custom Rules: {len(prefs.get('custom_rules', []))} rules learned.\n\n"
-    
-    msg += "**Recent Activity:**\n"
-    for ep in recent:
-        msg += f"- {ep['timestamp'][:10]}: {ep['task_summary']} ({ep['outcome']})\n"
-        
-    await ctx.send(msg)
+
 
 @bot.command(name="help_aetox")
 async def custom_help(ctx: commands.Context):
@@ -282,7 +264,6 @@ async def custom_help(ctx: commands.Context):
         "`!task`   - Direct Execution (Fast Lane ⚡)\n"
         "`!plan`   - Planned Execution (Deep Lane 🧠)\n"
         "`!setup`  - Initialize Professional Workspace 🏗️\n"
-        "`!memory` - View memory and history\n"
         "`!status` - Check progress\n"
         "`!cancel` - Stop task\n"
     )
