@@ -28,6 +28,17 @@ class MasterFileManager(BaseTool):
             "Executables": [".exe", ".msi", ".bat", ".sh"]
         }
 
+    def get_prompt_doc(self) -> str:
+        return (
+            f"Tool: {self.name}\n"
+            f"หน้าที่: จัดระเบียบไฟล์อัตโนมัติ แยกตามประเภทลงโฟลเดอร์\n"
+            f"คำสั่ง: organize\n"
+            f"ตัวอย่าง JSON:\n"
+            f'  {{"tool": "master_file_manager", "action": "organize", '
+            f'"params": {{"path": "C:/Users/Desktop"}}, "confidence": 0.95}}\n'
+            f"ใช้เมื่อ: ผู้ใช้พูดว่า 'จัดระเบียบ', 'จัดโฟลเดอร์', 'organize'\n"
+        )
+
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         action = params.get("action", "organize")
         path = params.get("path")

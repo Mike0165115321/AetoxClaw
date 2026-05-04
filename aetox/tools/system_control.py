@@ -19,6 +19,20 @@ class SystemControl(BaseTool):
             actions=["open"]
         )
 
+    def get_prompt_doc(self) -> str:
+        return (
+            f"Tool: {self.name}\n"
+            f"หน้าที่: เปิดแอปพลิเคชันหรือไฟล์บนเครื่อง\n"
+            f"คำสั่ง: open\n"
+            f"ตัวอย่าง JSON (เปิดแอปเดียว):\n"
+            f'  {{"tool": "system_control", "action": "open", '
+            f'"params": {{"target": "notepad"}}, "confidence": 0.95}}\n'
+            f"ตัวอย่าง JSON (เปิดหลายแอป):\n"
+            f'  {{"tool": "system_control", "action": "open", '
+            f'"params": {{"targets": ["notepad", "calc"]}}, "confidence": 0.95}}\n'
+            f"ใช้เมื่อ: ผู้ใช้พูดว่า 'เปิด', 'รัน', 'open', 'launch'\n"
+        )
+
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         action = params.get("action")
         target = params.get("target") or params.get("path")

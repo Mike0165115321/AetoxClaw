@@ -20,6 +20,17 @@ class AetoxVision(BaseTool):
             actions=["read", "summarize", "list"]
         )
 
+    def get_prompt_doc(self) -> str:
+        return (
+            f"Tool: {self.name}\n"
+            f"หน้าที่: อ่านเนื้อหาไฟล์ (PDF, Word, TXT, Code) และดูโครงสร้างโฟลเดอร์\n"
+            f"คำสั่ง: read, summarize, list\n"
+            f"ตัวอย่าง JSON:\n"
+            f'  {{"tool": "aetox_vision", "action": "read", '
+            f'"params": {{"path": "C:/docs/report.pdf"}}, "confidence": 0.95}}\n'
+            f"ใช้เมื่อ: ผู้ใช้พูดว่า 'อ่าน', 'สรุป', 'ดูไฟล์', 'เปิดดู', 'list'\n"
+        )
+
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         action = params.get("action", "read")
         path = params.get("path")

@@ -1,37 +1,51 @@
-# AetoxOS: มาตรฐานการสร้างเครื่องมือ (Tool Standard)
+# AetoxOS: มาตรฐานการสร้างเครื่องมือ (Tool Standard) - Dynamic Edition
 
-เอกสารฉบับนี้กำหนดโครงสร้างมาตรฐานสำหรับการสร้างเครื่องมือ (Tools) ใหม่ใน AetoxOS เพื่อให้ระบบคงความยืดหยุ่น (Flexibility) และรองรับการขยายตัว (Scalability) ได้อย่างไร้รอยต่อ
+เอกสารฉบับนี้กำหนดโครงสร้างมาตรฐานสำหรับการสร้างเครื่องมือ (Tools) ใหม่ใน AetoxOS เพื่อให้ระบบคงความยืดหยุ่น (Flexibility) และรองรับการขยายตัว (Scalability) ได้อย่างไร้รอยต่อผ่านระบบ **Dynamic Tool Discovery**
 
 ---
 
 ## 1. โครงสร้างพื้นฐาน (Core Architecture)
-ทุกเครื่องมือต้องสืบทอดคุณสมบัติ (Inherit) จากคลาส `BaseTool` เพื่อให้แน่ใจว่ามี Interface ที่เหมือนกัน
+ทุกเครื่องมือต้องสืบทอดคุณสมบัติ (Inherit) จากคลาส `BaseTool` ใน `aetox/tools/base.py`
 
 ### ส่วนประกอบที่สำคัญ:
 1. **Name:** ชื่อเครื่องมือ (ภาษาอังกฤษ lowercase)
-2. **Description:** คำอธิบายหน้าที่ (ภาษาไทย) **สำคัญมาก:** AI จะใช้ข้อมูลนี้ในการตัดสินใจเลือกใช้เครื่องมือ
+2. **Description:** คำอธิบายหน้าที่ (ภาษาไทย) AI จะใช้ข้อมูลนี้เป็นหลักในเบื้องต้น
 3. **Actions:** รายการคำสั่งที่เครื่องมือนี้รองรับ (List of Strings)
-4. **Execute Method:** จุดรับคำสั่งและพารามิเตอร์จาก AI
+4. **get_prompt_doc():** (สำคัญมาก) เมธอดสำหรับส่งคืนคู่มือการใช้งานแบบละเอียดและตัวอย่าง JSON เพื่อสอน AI (Prompt Injection)
+5. **Execute Method:** จุดรับคำสั่งและพารามิเตอร์จาก AI
 
 ---
 
 ## 2. รูปแบบการเขียนคลาส (Class Structure)
 
 ```python
+from typing import Dict, Any
+from aetox.tools.base import BaseTool
+
 class YourNewTool(BaseTool):
     def __init__(self):
         super().__init__(
             name="your_tool_name",
-            description="อธิบายว่าเครื่องมือนี้ทำอะไร (เน้นคีย์เวิร์ดที่ผู้ใช้จะสั่ง)",
+            description="อธิบายสั้นๆ ว่าเครื่องมือนี้ทำอะไร",
             actions=["action_1", "action_2"]
         )
 
+    def get_prompt_doc(self) -> str:
+        """ส่งคืนคำแนะนำแบบละเอียดเพื่อให้ AI ใช้งานเครื่องมือได้อย่างแม่นยำ"""
+        return (
+            f"Tool: {self.name}\n"
+            f"หน้าที่: อธิบายหน้าที่แบบละเอียด พร้อมเงื่อนไขการใช้\n"
+            f"คำสั่ง: {', '.join(self.actions)}\n"
+            f"ตัวอย่าง JSON:\n"
+            f'  {{"tool": "{self.name}", "action": "action_1", '
+            f'"params": {{"target": "value"}}, "confidence": 0.95}}\n'
+            f"ใช้เมื่อ: ระบุคีย์เวิร์ดที่ผู้ใช้มักจะสั่ง\n"
+        )
+
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        # 1. ดึงพารามิเตอร์ที่ AI ส่งมา
         action = params.get("action")
         target = params.get("target") or params.get("path")
 
-        # 2. ตรวจสอบ Action และทำงานตาม Logic
         if action == "action_1":
             return self._logic_function(target)
 
@@ -49,20 +63,22 @@ class YourNewTool(BaseTool):
 ### การส่งข้อมูล (Output):
 ต้องคืนค่าเป็น `Dict` ที่มีโครงสร้างดังนี้เสมอ:
 - `status`: "success" หรือ "failure"
-- `output`: ข้อความสรุปผลงาน (ถ้าสำเร็จ)
+- `output`: ข้อความสรุปผลงานสำหรับแจ้งผู้ใช้ (ถ้าสำเร็จ)
 - `error`: ข้อความอธิบายสาเหตุ (ถ้าล้มเหลว)
 
 ---
 
-## 4. ขั้นตอนการลงทะเบียน (Registration Process)
-เมื่อสร้างไฟล์เครื่องมือใน `aetox/tools/` เรียบร้อยแล้ว ต้องทำการเชื่อมต่อที่ **`ExecutorAgent`**:
-1. Import คลาสเครื่องมือใหม่
-2. Initialize ใน `__init__`
-3. เพิ่มชื่อตัวแปรลงในเมธอด `_get_tools_info` เพื่อให้ระบบฉีดข้อมูลลงในพรอมต์อัตโนมัติ (Dynamic Discovery)
+## 4. ขั้นตอนการลงทะเบียน (Dynamic Discovery)
+ระบบ AetoxOS ใช้การสแกนไฟล์อัตโนมัติ (**Auto-scan**) คุณไม่จำเป็นต้องแก้ไข `ExecutorAgent` อีกต่อไป:
+1. สร้างไฟล์เครื่องมือใหม่ในโฟลเดอร์ `aetox/tools/` (เช่น `my_new_tool.py`)
+2. ตรวจสอบว่าคลาสของคุณสืบทอดจาก `BaseTool`
+3. ระบบ `ToolLoader` จะตรวจพบไฟล์ใหม่และลงทะเบียนเข้าสู่ `ToolRegistry` โดยอัตโนมัติเมื่อ Start ระบบ
+4. คู่มือใน `get_prompt_doc()` จะถูกฉีดเข้าไปใน Prompt ของ AI โดยอัตโนมัติผ่าน placeholder `{tools}`
 
 ---
 
 ## 5. กฎเหล็ก (Best Practices)
-- **Description is King:** เขียนคำอธิบายหน้าที่ใน `__init__` ให้ชัดเจนที่สุด เพื่อให้ AI เลือกใช้ได้ถูกงานโดยไม่ต้องจูนพรอมต์เพิ่ม
+- **Examples are King:** ใน `get_prompt_doc()` ควรให้ตัวอย่าง JSON ที่ถูกต้อง เพื่อลดโอกาสที่ AI จะส่งพารามิเตอร์มาผิดรูปแบบ
 - **Atomic Actions:** หนึ่ง Action ควรทำงานอย่างเดียวให้จบ (Single Responsibility)
-- **Error Handling:** ต้องมี `try-except` ครอบ Logic เสมอ เพื่อไม่ให้บอทค้างเวลาทำงานพลาด
+- **Error Handling:** ต้องมี `try-except` ครอบ Logic หลักเสมอ เพื่อไม่ให้ระบบค้าง
+- **No Manual Imports:** หลีกเลี่ยงการ Import Tool ข้ามกันโดยตรง ให้ใช้ผ่านระบบ Registry ของ Agent แทน

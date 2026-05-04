@@ -128,14 +128,14 @@ AetoxOS/
 │   │   ├── __init__.py
 │   │   └── working.py               # In-RAM memory for current task
 │   │
-│   ├── tools/                       # Tool Registry (Python)
+│   ├── tools/                       # Tool Layer (Python)
 │   │   ├── __init__.py
-│   │   ├── base_tool.py             # Abstract base class for all tools
+│   │   ├── base.py                  # Abstract base class for all tools
+│   │   ├── registry.py              # Central tool registry
+│   │   ├── loader.py                # Automatic tool discovery/loader
 │   │   ├── file_manager.py          # Windows file system operations
-│   │   ├── web_search.py            # Internet search (DuckDuckGo / SerpAPI)
-│   │   ├── code_runner.py           # Executes Python / PowerShell scripts
-│   │   ├── system_monitor.py        # Windows CPU / RAM / Process monitoring
-│   │   └── external_ai.py           # Calls Claude API / GPT-4 for complex tasks
+│   │   ├── vision.py                # Document reading & analysis
+│   │   └── system_control.py        # Application & system control
 │   │
 │   ├── interfaces/                  # Interface Layer (Python)
 │   │   ├── __init__.py
