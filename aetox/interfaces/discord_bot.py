@@ -139,25 +139,42 @@ async def handle_task_pipe(ctx, goal):
 
         # 2. Execution Lane Decision
         if est_steps > 1:
-            # --- AUTO-PLANNING LANE ---
+            # --- INTERACTIVE PLANNING LANE ---
             try:
-                print(f"[*] Complexity > 1. Triggering Auto-Planner for: {goal}")
+                # 1. Stream the "Narrative" first to make it feel fast
+                narrative_prompt = f"อธิบายเป็นภาษาไทยสั้นๆ ว่าคุณจะจัดการงานนี้ยังไง (งานคือ: {goal})"
+                stream_gen = shared_dispatcher.executor.run_chat_stream(narrative_prompt)
+                await interface.stream_chat(stream_gen)
+                
+                # 2. Generate the structured plan in the background
+                print(f"[*] Generating structured plan for: {goal}")
                 planner = AetoxPlanner()
                 plan = await planner.create_plan(goal)
                 
-                # Show Plan on Discord
+                # Show steps and ask for approval
+                plan_id = plan.get('plan_id', 'unknown')
                 steps = plan.get('steps', [])
+                
                 plan_msg = "📝 **แผนการทำงานย่อย:**\n"
                 for s in steps:
                     plan_msg += f"- ขั้นตอนที่ {s.get('step_id')}: {s.get('description')}\n"
                 await ctx.send(plan_msg)
 
-                print(f"[PLAN GENERATED] Found {len(steps)} steps.")
-                await shared_dispatcher.run_plan(plan)
-                await ctx.send("🏁 **ภารกิจเสร็จสมบูรณ์เรียบร้อยครับ!**")
+                # 3. ASK FOR APPROVAL
+                is_approved = await interface.request_approval(
+                    action="ดำเนินการตามแผนงาน",
+                    details=f"งานที่มี {len(steps)} ขั้นตอน เพื่อบรรลุเป้าหมาย: {goal}"
+                )
+
+                if is_approved:
+                    await shared_dispatcher.run_plan(plan)
+                    await ctx.send("🏁 **ภารกิจเสร็จสมบูรณ์เรียบร้อยครับ!**")
+                else:
+                    await ctx.send("❌ **ยกเลิกแผนการทำงานแล้วครับ**")
+
             except Exception as e:
                 print(f"[ERROR] Planning failed: {e}")
-                await ctx.send(f"❌ **เกิดข้อผิดพลาดในการทำงานหลายขั้นตอน:** {str(e)}")
+                await ctx.send(f"❌ **เกิดข้อผิดพลาดในการวางแผน:** {str(e)}")
         
         elif extraction.get("tool") == "chat":
             # --- SIMPLE CHAT LANE ---

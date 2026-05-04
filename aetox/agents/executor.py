@@ -77,15 +77,17 @@ class ExecutorAgent:
             logger.error(f"Async Extraction failed: {e}")
             return {"tool": "chat", "action": "reply", "params": {"message": description}, "confidence": 1.0}
 
-    async def run_action(
-        self,
-        extraction: Dict[str, Any],
-        memory_context: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Execute the extracted action."""
+    async def run_action(self, extraction: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Asynchronously executes the tool based on extraction."""
         tool_name = extraction.get("tool")
         action = extraction.get("action")
         params = extraction.get("params", {})
+        
+        # --- TERMINAL LOG: Show what's actually happening ---
+        print(f"[TOOL] ⚙️ Calling: {tool_name} -> {action} with {params}")
+
+        if tool_name == "none" or tool_name == "other":
+            return {"status": "failure", "error": "No valid tool selected."}
 
         if params.get("path") and params.get("path") != ".":
             self.last_path = params.get("path")

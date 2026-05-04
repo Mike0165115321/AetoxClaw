@@ -91,24 +91,25 @@ class Dispatcher:
                 await self.progress_callback(f"⚖️ ตรวจสอบคุณภาพงานขั้นตอนที่ {step_id}...")
                 
             eval_result = await self.critic.evaluate(step, result, self.memory.context)
+            # 4. Update memory and check for failure
+            is_success = (eval_result.get("verdict") == "pass")
+            status = "success" if is_success else "failure"
             
-            if eval_result.get("verdict") == "pass":
-                status = "success"
-            else:
-                status = "failure"
-                all_success = False
-                if self.progress_callback:
-                    await self.progress_callback(f"⚠️ **แจ้งเตือน:** ตรวจพบประเด็นในขั้นตอนที่ {step_id}: {eval_result.get('suggestion')}")
-
-            # 4. Update memory
             self.memory.add_step_result(
                 step_id=step_id,
                 result=result.get("output"),
                 status=status,
-                error=result.get("error")
+                error=result.get("error") or eval_result.get("suggestion")
             )
             
             if "memory_updates" in result:
                 self.memory.update_context(result["memory_updates"])
 
-        return self.memory.get_full_context()
+            # 🛑 STOP IF FAILED: ถ้าขั้นตอนไม่ผ่าน ให้หยุดทำขั้นตอนถัดไปทันที
+            if not is_success:
+                error_msg = eval_result.get("suggestion") or "ไม่ทราบสาเหตุ"
+                if self.progress_callback:
+                    await self.progress_callback(f"🛑 **หยุดการทำงาน:** ขั้นตอนที่ {step_id} ไม่ผ่านการตรวจสอบคุณภาพ\n**เหตุผล:** {error_msg}")
+                return {"status": "failure", "plan_id": plan_id, "failed_step": step_id, "reason": error_msg}
+
+        return {"status": "success", "data": self.memory.get_full_context()}
