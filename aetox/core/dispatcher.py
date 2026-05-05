@@ -59,7 +59,7 @@ class Dispatcher:
         
         # 3. Update state (Standardized)
         self.executor.add_to_history(goal, result.get("output", ""))
-        self.memory.add_step_result(
+        await self.memory.add_step_result(
             step_id="direct",
             output=result.get("output"),
             status=result.get("status", "success"),
@@ -120,7 +120,7 @@ class Dispatcher:
                     is_success = (eval_result.get("verdict") == "pass")
                     
                     if is_success:
-                        self.memory.add_step_result(step_id, result.get("output"), "success")
+                        await self.memory.add_step_result(step_id, result.get("output"), "success")
                         if "memory_updates" in result and result["memory_updates"]:
                             await self.memory.update_context(plan_id, result["memory_updates"])
                         
@@ -132,7 +132,7 @@ class Dispatcher:
                         step["hint"] = feedback # Inject feedback for next retry
                         
                         # บันทึกสถานะ Retry
-                        self.memory.add_step_result(step_id, result.get("output"), "retry", feedback, metadata={"eval": eval_result})
+                        await self.memory.add_step_result(step_id, result.get("output"), "retry", feedback, metadata={"eval": eval_result})
                         
                         await self._safe_callback(f"⚠️ **ไม่ผ่านเกณฑ์:** {eval_result.get('suggestion')}\n🔍 **คำแนะนำ:** {feedback}")
                         self.logger.warning(f"[DISPATCHER] Step {step_id} FAILED critic | retry: {retries}")
@@ -142,13 +142,13 @@ class Dispatcher:
                     error_msg = f"ขั้นตอนที่ {step_id} หมดเวลา (Timeout {timeout_per_step}s)"
                     step["hint"] = "การทำงานใช้เวลานานเกินไป โปรดทำให้ขั้นตอนสั้นลงหรือเพิ่ม timeout"
                     
-                    self.memory.add_step_result(step_id, None, "failure", error_msg)
+                    await self.memory.add_step_result(step_id, None, "failure", error_msg)
                     
                     await self._safe_callback(f"⏱️ **หมดเวลา:** {error_msg}")
                     self.logger.error(f"[DISPATCHER] Step {step_id} TIMEOUT")
                 
                 if retries == max_retries:
-                    self.memory.add_step_result(step_id, None, "failed", "พยายามสูงสุดแล้วแต่ไม่สำเร็จ")
+                    await self.memory.add_step_result(step_id, None, "failed", "พยายามสูงสุดแล้วแต่ไม่สำเร็จ")
                     return {"status": "failure", "plan_id": plan_id, "failed_step": step_id, "reason": "Max retries exceeded"}
 
         final_data = await self.memory.get_full_context_async()

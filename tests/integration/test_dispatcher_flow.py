@@ -13,12 +13,12 @@ class TestDispatcherFlow:
         return Dispatcher(memory)
 
     async def test_run_direct_step_success(self, dispatcher, mock_extraction_response):
-        # Mock executor
-        dispatcher.executor = MagicMock()
+        # Mock executor methods since we mocked the executor object
+        dispatcher.executor.extract_action = AsyncMock(return_value={"tool": "t", "action": "a", "confidence": 0.9})
         dispatcher.executor.run_action = AsyncMock(return_value={"status": "success", "output": "Done"})
         
-        step = {"step_id": 1, "description": "Test Step"}
-        result = await dispatcher.run_direct_step(step, mock_extraction_response)
+        goal = "Test Step"
+        result = await dispatcher.run_direct_step(goal)
         
         assert result["status"] == "success"
         assert dispatcher.executor.run_action.called

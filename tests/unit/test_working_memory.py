@@ -49,3 +49,38 @@ class TestWorkingMemory:
         assert len(summarized) < len(long_text)
         assert "Sentence 1" in summarized
         assert "Sentence 5" in summarized
+
+    def test_store_long_term(self, memory):
+        from unittest.mock import MagicMock, patch
+        mock_vector_store = MagicMock()
+        
+        with patch("aetox.memory.working.VectorMemory", return_value=mock_vector_store), \
+             patch("aetox.memory.working.BGE3Embedder", return_value=MagicMock()):
+            
+            memory.store_long_term("Test content for RAG", metadata={"source": "test"})
+            
+            # Verify vector_store.add was called
+            assert mock_vector_store.add.called
+            args, kwargs = mock_vector_store.add.call_args
+            assert "Test content for RAG" in kwargs["docs"]
+            assert kwargs["metadata"][0]["source"] == "test"
+
+    def test_retrieve_relevant(self, memory):
+        from unittest.mock import MagicMock, patch
+        mock_vector_store = MagicMock()
+        mock_vector_store.query.return_value = {
+            "documents": [["Result 1"]],
+            "metadatas": [[{"source": "db"}]],
+            "distances": [[0.1]],
+            "ids": [["id1"]]
+        }
+        
+        with patch("aetox.memory.working.VectorMemory", return_value=mock_vector_store), \
+             patch("aetox.memory.working.BGE3Embedder", return_value=MagicMock()):
+            
+            results = memory.retrieve_relevant("Search query", limit=1)
+            
+            assert len(results) == 1
+            assert results[0]["content"] == "Result 1"
+            assert results[0]["metadata"]["source"] == "db"
+            mock_vector_store.query.assert_called_once_with("Search query", n_results=1)
