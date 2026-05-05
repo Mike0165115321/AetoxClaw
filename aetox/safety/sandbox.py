@@ -1,5 +1,7 @@
 import os
 import yaml
+import logging
+import getpass
 from pathlib import Path
 from typing import List, Optional
 
@@ -22,19 +24,20 @@ class Sandbox:
             with open(config_path, 'r') as f:
                 config = yaml.safe_load(f)
                 
-            username = os.getlogin()
+            username = getpass.getuser()
             
             for p in config.get('allowed_paths', []):
                 p = p.replace("{username}", username)
-                self.allowed_paths.append(str(Path(p).resolve()))
+                self.allowed_paths.append(str(Path(p).resolve()).lower())
                 
             for p in config.get('forbidden_paths', []):
                 p = p.replace("{username}", username)
-                self.forbidden_paths.append(str(Path(p).resolve()))
+                self.forbidden_paths.append(str(Path(p).resolve()).lower())
                 
         except Exception as e:
+            self.logger.error(f"Failed to load sandbox config from {config_path}: {e}")
             # Fallback to current directory if config fails
-            self.allowed_paths = [str(Path(".").resolve())]
+            self.allowed_paths = [str(Path(".").resolve()).lower()]
 
     def validate_path(self, path: str) -> Path:
         """

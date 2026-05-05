@@ -35,6 +35,7 @@ class MemoryConfig(BaseModel):
     summary_ratio: float = 0.1
     episodic_path: str = "data/episodes.jsonl"
     vector_db_path: str = "data/vector_db"
+    history_truncate_chars: int = 200
     embedder: Dict[str, Any] = Field(default_factory=dict)
 
 class AgentConfig(BaseModel):
