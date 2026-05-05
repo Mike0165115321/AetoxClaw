@@ -11,8 +11,8 @@ class PathNavigator:
     """จัดการ 'ตำแหน่งปัจจุบัน' ของระบบไฟล์ เหมือน terminal มี cd"""
     
     def __init__(self, root: str = None):
-        # ตั้ง root ที่ปลอดภัย (เช่น home directory)
-        self.root = Path(root) if root else Path.home()
+        # ตั้ง root ที่ปลอดภัย (เช่น workspace directory)
+        self.root = Path(root) if root else Path.cwd()
         self.cwd = self.root  # ตำแหน่งปัจจุบัน
         
         # โฟลเดอร์ที่อนุญาตให้เข้าถึง (ป้องกันเข้าถึงระบบ)

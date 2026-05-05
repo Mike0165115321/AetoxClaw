@@ -118,10 +118,19 @@ class ExecutorAgent:
         result = self.tools.execute(tool_name, params)
 
         # --- TERMINAL LOG: Show the actual result from the tool ---
-        if result.get("status") == "success":
+        status = result.get("status")
+        if status == "success":
             print(f"[TOOL] ✅ Success: {result.get('output')}")
+        elif status == "chat":
+            print(f"[TOOL] 💬 Chat hand-off: Switching to conversation mode...")
         else:
             print(f"[TOOL] ❌ Failure: {result.get('error')}")
+
+        if result.get("status") == "chat":
+            # If a tool returns 'chat' status, it means it wants to hand off to LLM
+            # We use the output as the message to respond to
+            extraction["params"]["message"] = result.get("output", "")
+            return await self._handle_chat(extraction)
 
         if tool_name == "aetox_vision" and result.get("status") == "success" and action == "summarize":
             result = await self._summarize_vision_result(result)
@@ -153,9 +162,12 @@ class ExecutorAgent:
         result["output"] = f"👁️ **[AetoxVision - Summary]**\n\n{summary_text}"
         return result
 
-    async def run_chat_stream(self, message: str):
+    async def run_chat_stream(self, message: str, context: str = None):
         """Asynchronous stream generator for chat tokens."""
         system_prompt = "คุณคือ AetoxClaw ตอบกลับเป็นภาษาไทยที่สุภาพและเป็นธรรมชาติ"
+        if context:
+            system_prompt += f"\nบริบทเพิ่มเติม: {context}"
+            
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": message}

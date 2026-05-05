@@ -34,7 +34,11 @@ def load_tools(registry: ToolRegistry, tools_dir: str = "aetox/tools") -> None:
                     and issubclass(attr, BaseTool)
                     and attr is not BaseTool
                 ):
-                    instance = attr()
+                    # Inject registry for SystemControl to enable capability listing
+                    if attr.__name__ == "SystemControl":
+                        instance = attr(registry=registry)
+                    else:
+                        instance = attr()
                     registry.register(instance)
                     break
 

@@ -13,7 +13,7 @@ memory:
   
   # 🔹 Embedder Settings
   embedder:
-    model: "BAAI/bge-m3"
+    model: "BAAI/bge-m3"  # 🧠 ใช้ BGE-M3 (Lazy Loaded)
     device: "cpu"          # 🔑 แนะนำ: "cpu" เพื่อประหยัด VRAM
     batch_size: 8
     normalize: true
@@ -24,6 +24,7 @@ models:
   executor: "qwen3:8b"
   critic: "qwen3:8b"
   researcher: "qwen3:8b"
+  extraction: "qwen3:8b"
 
 tools:
   enabled:

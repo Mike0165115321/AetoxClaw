@@ -46,26 +46,34 @@ class WorkingMemory:
         # Layer 2: Episodic Path
         self.episodic_path = config.get("episodic_path", "data/episodes.jsonl")
         
-        # Layer 3: Advanced RAG (BGE-M3 + VectorStore)
+        # Layer 3: Advanced RAG (Lazy Loaded)
+        self.config = config
+        self.embedder = None
+        self.vector_store = None
+
+    def _ensure_rag(self):
+        """Lazy initialization of RAG components."""
+        if self.vector_store is not None:
+            return
+
         try:
             import os
-            embedder_cfg = config.get("embedder", {})
+            embedder_cfg = self.config.get("embedder", {})
             model_path = os.getenv("EMBEDDER_MODEL_PATH") or embedder_cfg.get("model", "BAAI/bge-m3")
             
             if model_path == "none":
-                self.embedder = None
-                self.vector_store = None
                 return
 
             from .embedder import BGE3Embedder
             from .vector_store import VectorMemory
             
+            logger.info(f"🚀 Lazy loading BGE-M3 RAG...")
             self.embedder = BGE3Embedder(
                 model_path=model_path,
                 device=embedder_cfg.get("device", "cpu")
             )
             self.vector_store = VectorMemory(
-                path=config.get("vector_db_path", "data/vector_db"),
+                path=self.config.get("vector_db_path", "data/vector_db"),
                 embedder=self.embedder
             )
         except Exception as e:
@@ -144,6 +152,7 @@ class WorkingMemory:
     # ========== Layer 3 Actions (BGE-M3 Updated) ==========
     def store_long_term(self, content: str, metadata: Dict = None):
         """เก็บข้อมูลลง long-term memory ด้วย BGE-M3"""
+        self._ensure_rag()
         if not self.vector_store: return
         
         chunks = self._split_content(content)
@@ -159,6 +168,7 @@ class WorkingMemory:
 
     def retrieve_relevant(self, query: str, limit: int = 5) -> List[Dict]:
         """ค้นหาข้อมูลที่เกี่ยวข้องจาก BGE-M3 Vector Store"""
+        self._ensure_rag()
         if not self.vector_store: return []
         
         results = self.vector_store.query(query, n_results=limit)

@@ -1,7 +1,7 @@
-# core/memory/vector_store.py (อัปเดต)
-# import chromadb
-# from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+import logging
 from .embedder import BGE3Embedder
+
+logger = logging.getLogger("aetox.memory.vector_store")
 
 class VectorMemory:
  def __init__(

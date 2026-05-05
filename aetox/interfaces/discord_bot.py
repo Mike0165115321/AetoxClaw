@@ -184,14 +184,28 @@ async def handle_task_pipe(ctx, goal):
                 print(f"[ERROR] Planning failed: {e}")
                 await ctx.send(f"❌ **เกิดข้อผิดพลาดในการวางแผน:** {str(e)}")
         
-        elif extraction.get("tool") == "chat":
-            # --- SIMPLE CHAT LANE ---
-            stream_gen = shared_dispatcher.executor.run_chat_stream(goal)
-            chat_response = await interface.stream_chat(stream_gen)
+        elif extraction.get("tool") in ["chat", "system_control"]:
+            # --- CHAT & SYSTEM CONTROL LANE (Streaming Supported) ---
+            print(f"[*] Switching to streaming mode for: {extraction.get('tool')}")
             
-            # ✅ บันทึกความจำ (Chat History)
-            if chat_response:
-                shared_dispatcher.executor.add_to_history(goal, chat_response)
+            # 1. Run action to get tool output (like identity/status)
+            result = await shared_dispatcher.executor.run_action(extraction, minimal_context)
+            
+            # 2. Check if it's a direct success or a chat handoff
+            if result.get("status") == "success":
+                # If tool returned success (like list_capabilities), just send it
+                await ctx.send(result.get("output", ""))
+            else:
+                # If tool returned 'chat' status, stream it
+                stream_gen = shared_dispatcher.executor.run_chat_stream(
+                    goal, 
+                    context=result.get("output") if result.get("status") == "chat" else None
+                )
+                chat_response = await interface.stream_chat(stream_gen)
+                
+                # ✅ บันทึกความจำ (Chat History)
+                if chat_response:
+                    shared_dispatcher.executor.add_to_history(goal, chat_response)
         else:
             # --- SINGLE ACTION LANE ---
             try:

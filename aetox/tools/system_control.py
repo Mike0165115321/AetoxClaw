@@ -1,80 +1,57 @@
-import os
-import subprocess
-import logging
 from typing import Dict, Any
 from aetox.tools.base import BaseTool
 
-logger = logging.getLogger("aetox.tools.system_control")
-
 class SystemControl(BaseTool):
     """
-    SystemControl - The 'Hands' of AetoxClaw.
-    Allows the agent to interact with the local operating system, 
-    open applications, and run files.
+    Standard tool for system control and general communication.
     """
-    def __init__(self):
+    def __init__(self, registry=None):
         super().__init__(
             name="system_control",
-            description="ใช้สำหรับการ 'เปิด' (Open/Run) แอปพลิเคชัน, โปรแกรมในเครื่อง, หรือเปิดไฟล์งานขึ้นมาใช้งานบนหน้าจอโดยตรง",
-            actions=["open"]
+            description="จัดการการตอบโต้ทั่วไป แนะนำตัว และตรวจสอบความสามารถของระบบ",
+            actions=["chat", "get_status", "list_capabilities"]
+        )
+        self.registry = registry # อ้างอิงไปยัง registry เพื่อดู tools ทั้งหมด
+        self.identity = (
+            "ฉันคือ AetoxClaw (Trinity Edition) ระบบปฏิบัติการอัจฉริยะ "
+            "ที่ถูกออกแบบมาเพื่อช่วยคุณจัดการไฟล์, ค้นหาข้อมูลเว็บ, วิเคราะห์รูปภาพ "
+            "และควบคุมระบบคอมพิวเตอร์ของคุณแบบอัตโนมัติผ่านพลังของ AI"
         )
 
     def get_prompt_doc(self) -> str:
         return (
             f"Tool: {self.name}\n"
-            f"หน้าที่: เปิดแอปพลิเคชันหรือไฟล์บนเครื่อง\n"
-            f"คำสั่ง: open\n"
-            f"ตัวอย่าง JSON (เปิดแอปเดียว):\n"
-            f'  {{"tool": "system_control", "action": "open", '
-            f'"params": {{"target": "notepad"}}, "confidence": 0.95}}\n'
-            f"ตัวอย่าง JSON (เปิดหลายแอป):\n"
-            f'  {{"tool": "system_control", "action": "open", '
-            f'"params": {{"targets": ["notepad", "calc"]}}, "confidence": 0.95}}\n'
-            f"ใช้เมื่อ: ผู้ใช้พูดว่า 'เปิด', 'รัน', 'open', 'launch'\n"
+            f"หน้าที่: แนะนำตัว, คุยทั่วไป และรายงานความสามารถของระบบ\n"
+            f"คำสั่ง:\n"
+            f"1. chat: คุยเล่น ทักทาย หรือแนะนำตัว (params: message)\n"
+            f"2. get_status: ดูสถานะระบบ (ไม่ต้องมี params)\n"
+            f"3. list_capabilities: บอกผู้ใช้ว่ามีเครื่องมือ (Tools) อะไรพร้อมใช้งานบ้าง (ไม่ต้องมี params)\n"
         )
 
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         action = params.get("action")
-        target = params.get("target") or params.get("path")
-        targets = params.get("targets") # Support multiple apps in a list
-
-        if not action:
-            return {"status": "failure", "error": "โปรดระบุคำสั่ง (action) ที่ต้องการให้ทำครับ"}
-
-        if action == "open":
-            if targets and isinstance(targets, list):
-                results = []
-                for t in targets:
-                    results.append(self._open_target(t))
-                return {
-                    "status": "success", 
-                    "output": f"🚀 **[AetoxControl]** สั่งเปิด {len(targets)} รายการให้แล้วครับ:\n" + "\n".join([r.get("output", "") for r in results])
-                }
-            return self._open_target(target)
         
-        return {"status": "failure", "error": f"ไม่รู้จักคำสั่ง: {action}"}
-
-    def _open_target(self, target: str) -> Dict[str, Any]:
-        """Opens an application or a file using the system's default handler."""
-        if not target:
-            return {"status": "failure", "error": "โปรดระบุชื่อแอปหรือไฟล์ที่ต้องการเปิดครับ"}
-
-        try:
-            # On Windows, os.startfile is the cleanest way to open apps/files
-            # It's like double-clicking the item.
-            os.startfile(target)
+        if action == "chat":
+            message = params.get("message", "")
+            # ส่ง Identity ไปพร้อมกับข้อความเพื่อให้ LLM นำไปใช้ตอบกลับ
             return {
-                "status": "success",
-                "output": f"🚀 **[AetoxControl]** กำลังเปิด '{target}' ให้แล้วครับ!"
+                "status": "chat", 
+                "output": f"บริบทตัวตน: {self.identity}\nข้อความผู้ใช้: {message}"
             }
-        except Exception as e:
-            # If direct open fails, try searching in common app paths or use shell
-            try:
-                subprocess.Popen(target, shell=True)
-                return {
-                    "status": "success",
-                    "output": f"🚀 **[AetoxControl]** พยายามเปิด '{target}' ผ่าน Shell ให้แล้วครับ"
-                }
-            except Exception as e2:
-                logger.error(f"Failed to open {target}: {e2}")
-                return {"status": "failure", "error": f"ไม่สามารถเปิด '{target}' ได้ครับ: {str(e2)}"}
+            
+        if action == "get_status":
+            return {"status": "success", "output": f"🟢 ระบบออนไลน์: {self.identity}"}
+
+        if action == "list_capabilities":
+            if not self.registry:
+                return {"status": "failure", "error": "ไม่สามารถดึงข้อมูล Registry ได้"}
+            
+            tool_list = []
+            for name, tool in self.registry.get_all().items():
+                tool_list.append(f"- **{name}**: {tool.description}")
+            
+            output = "🛠️ **เครื่องมือที่พร้อมใช้งานในขณะนี้:**\n" + "\n".join(tool_list)
+            output += "\n\nคุณสามารถสั่งให้ฉันจัดการไฟล์, ท่องเว็บ หรือวิเคราะห์ข้อมูลได้ทันทีครับ!"
+            return {"status": "success", "output": output}
+            
+        return {"status": "failure", "error": f"ไม่พบคำสั่ง: {action}"}
